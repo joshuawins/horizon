@@ -641,6 +641,12 @@ SRC_PGM_TEST = \
 SRC_GEN_PKG = \
 	src/gen-pkg/gen-pkg.cpp
 
+SRC_PR_REVIEW = \
+	src/pr-review/pr-review.cpp\
+	src/pool-update/pool-update.cpp\
+	src/pool-update/graph.cpp\
+	src/pool-update/pool-update_parametric.cpp\
+
 SRC_OCE = \
 	src/util/step_importer.cpp\
 	src/export_step/export_step.cpp\
@@ -659,7 +665,7 @@ SRC_OCE_EXPORT = \
 	src/export_step/export_step.cpp\
 	src/util/step_importer.cpp\
 
-SRC_ALL = $(sort $(SRC_COMMON) $(SRC_IMP) $(SRC_POOL_UTIL) $(SRC_PRJ_UTIL) $(SRC_POOL_UPDATE_PARA) $(SRC_PGM_TEST) $(SRC_POOL_PRJ_MGR) $(SRC_GEN_PKG))
+SRC_ALL = $(sort $(SRC_COMMON) $(SRC_IMP) $(SRC_POOL_UTIL) $(SRC_PRJ_UTIL) $(SRC_POOL_UPDATE_PARA) $(SRC_PGM_TEST) $(SRC_POOL_PRJ_MGR) $(SRC_GEN_PKG) $(SRC_PR_REVIEW))
 
 INC = -Isrc -isystem 3rd_party -I$(BUILDDIR)/gen
 
@@ -779,6 +785,7 @@ OBJ_PRJ_UTIL     = $(addprefix $(OBJDIR)/,$(SRC_PRJ_UTIL:.cpp=.o))
 OBJ_POOL_PRJ_MGR = $(addprefix $(OBJDIR)/,$(SRC_POOL_PRJ_MGR:.cpp=.o)) $(OBJ_RES)
 OBJ_PGM_TEST     = $(addprefix $(OBJDIR)/,$(SRC_PGM_TEST:.cpp=.o))
 OBJ_GEN_PKG      = $(addprefix $(OBJDIR)/,$(SRC_GEN_PKG:.cpp=.o))
+OBJ_PR_REVIEW    = $(addprefix $(OBJDIR)/,$(SRC_PR_REVIEW:.cpp=.o))
 
 
 
@@ -850,6 +857,10 @@ $(BUILDDIR)/horizon-pgm-test: $(OBJ_COMMON) $(OBJ_PGM_TEST)
 $(BUILDDIR)/horizon-gen-pkg: $(OBJ_COMMON) $(OBJ_GEN_PKG)
 	$(ECHO) " $@"
 	$(QUIET)$(CXX) $^ $(LDFLAGS) $(INC) $(CXXFLAGS) $(shell $(PKG_CONFIG) --libs $(LIBS_COMMON) glibmm-2.4 giomm-2.4) -o $@
+
+$(BUILDDIR)/horizon-pr-review: $(OBJ_COMMON) $(OBJ_PR_REVIEW)
+	$(ECHO) " $@"
+	$(QUIET)$(CXX) $^ $(LDFLAGS) $(INC) $(CXXFLAGS) $(shell $(PKG_CONFIG) --libs $(LIBS_COMMON) glibmm-2.4 giomm-2.4 cairomm-1.0 libgit2) -o $@
 
 $(BUILDDIR)/horizon.so: $(OBJ_PYTHON) $(OBJ_SHARED) $(OBJ_SHARED_OCE)
 	$(ECHO) " $@"
