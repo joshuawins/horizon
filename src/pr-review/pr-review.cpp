@@ -200,7 +200,7 @@ int main(int c_argc, char *c_argv[])
     pool.db.execute("COMMIT");
     pool.db.execute(
             "CREATE TEMP VIEW git_files_view AS "
-            "SELECT type, uuid, name, filename, status FROM git_files LEFT JOIN "
+            "SELECT type, uuid, name, filename, status FROM git_files INNER JOIN "
             "(SELECT type, uuid, name, filename FROM all_items_view UNION ALL SELECT DISTINCT 'model_3d' AS type, "
             "'00000000-0000-0000-0000-000000000000' as uuid, '' as name, model_filename as filename FROM models) "
             "ON filename=git_filename");
