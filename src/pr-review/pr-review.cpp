@@ -223,6 +223,21 @@ int main(int c_argc, char *c_argv[])
         ofs << "\n";
     }
 
+    {
+        SQLite::Query q(pool.db,
+                        "SELECT git_filename FROM git_files LEFT JOIN all_items_view ON "
+                        "filename=git_filename WHERE filename is NULL");
+        bool first = true;
+        while (q.step()) {
+            if (first) {
+                ofs << "# Non-items\n";
+                first = false;
+            }
+            ofs << " - " << q.get<std::string>(0) << "\n";
+        }
+        ofs << "\n";
+    }
+
     pool.db.execute(
             "CREATE TEMP VIEW top_parts AS "
             "SELECT git_files_view.uuid AS part_uuid FROM git_files_view "
