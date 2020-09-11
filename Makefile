@@ -643,9 +643,26 @@ SRC_GEN_PKG = \
 
 SRC_PR_REVIEW = \
 	src/pr-review/pr-review.cpp\
+	src/pr-review/canvas_cairo2.cpp\
 	src/pool-update/pool-update.cpp\
 	src/pool-update/graph.cpp\
 	src/pool-update/pool-update_parametric.cpp\
+	src/canvas/canvas.cpp \
+	src/canvas/appearance.cpp \
+	src/canvas/render.cpp \
+	src/canvas/draw.cpp \
+	src/canvas/text.cpp \
+	src/canvas/hershey_fonts.cpp \
+	src/canvas/image.cpp\
+	src/canvas/selectables.cpp\
+	src/canvas/fragment_cache.cpp\
+	src/util/text_data.cpp \
+	3rd_party/polypartition/polypartition.cpp\
+	3rd_party/poly2tri/common/shapes.cpp\
+	3rd_party/poly2tri/sweep/cdt.cpp\
+	3rd_party/poly2tri/sweep/sweep.cpp\
+	3rd_party/poly2tri/sweep/sweep_context.cpp\
+	3rd_party/poly2tri/sweep/advancing_front.cpp\
 
 SRC_OCE = \
 	src/util/step_importer.cpp\

@@ -5,6 +5,7 @@
 #include "board/board_layers.hpp"
 #include "pool/part.hpp"
 #include "pool/entity.hpp"
+#include "pool/symbol.hpp"
 #include "pool/pool_manager.hpp"
 #include <glibmm/miscutils.h>
 #include <giomm.h>
@@ -12,6 +13,7 @@
 #include "util/autofree_ptr.hpp"
 #include "pool-update/pool-update.hpp"
 #include "common/object_descr.hpp"
+#include "canvas_cairo2.hpp"
 
 using namespace horizon;
 
@@ -121,6 +123,20 @@ int main(int c_argc, char *c_argv[])
     entry_pool_update.set_description("update pool before generating review");
     group.add_entry(entry_pool_update, do_pool_update);
 
+    std::string images_dir;
+    Glib::OptionEntry entry_images_dir;
+    entry_images_dir.set_long_name("img-dir");
+    entry_images_dir.set_short_name('i');
+    entry_images_dir.set_description("images directory");
+    group.add_entry_filename(entry_images_dir, images_dir);
+
+    std::string images_prefix;
+    Glib::OptionEntry entry_images_prefix;
+    entry_images_prefix.set_long_name("img-prefix");
+    entry_images_prefix.set_short_name('p');
+    entry_images_prefix.set_description("images prefix");
+    group.add_entry_filename(entry_images_prefix, images_prefix);
+
 
     std::vector<std::string> filenames;
     Glib::OptionEntry entry_f;
@@ -139,6 +155,11 @@ int main(int c_argc, char *c_argv[])
 
     if (output_filename.size() == 0) {
         std::cerr << "output filename not specified" << std::endl;
+        return 1;
+    }
+
+    if (images_dir.size() == 0) {
+        std::cerr << "image directory not specified" << std::endl;
         return 1;
     }
 
@@ -512,6 +533,27 @@ int main(int c_argc, char *c_argv[])
             }
             else {
                 ofs << ":warning: Unit has no pins!\n";
+            }
+
+            {
+                bool has_sym = false;
+                SQLite::Query q_symbol(pool.db, "SELECT uuid FROM symbols WHERE unit = ?");
+                q_symbol.bind(1, unit.uuid);
+                while (q_symbol.step()) {
+                    has_sym = true;
+                    Symbol sym = *pool.get_symbol(q_symbol.get<std::string>(0));
+                    sym.expand();
+                    ofs << "#### Symbol: " << sym.name << "\n";
+                    CanvasCairo2 ca;
+                    ca.update(sym);
+                    const std::string img_filename = "sym_" + static_cast<std::string>(sym.uuid) + ".png";
+                    ca.get_image_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
+                    ofs << "![Symbol](" << images_prefix << img_filename << ")\n";
+                }
+
+                if (!has_sym) {
+                    ofs << ":warning: Unit has no symbols!\n";
+                }
             }
         }
     }
