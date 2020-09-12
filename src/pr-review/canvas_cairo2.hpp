@@ -18,7 +18,7 @@ public:
     }
     void load(const class Symbol &sym, const Placement &placement = Placement());
     void load(const class Package &pkg);
-    Cairo::RefPtr<Cairo::Surface> get_image_surface(double scale = 1);
+    Cairo::RefPtr<Cairo::Surface> get_image_surface(double scale = 1, double grid = -1);
 
 private:
     void img_polygon(const Polygon &poly, bool tr) override;

@@ -54,13 +54,47 @@ void CanvasCairo2::img_polygon(const Polygon &ipoly, bool tr)
         cr->stroke();
 }
 
-Cairo::RefPtr<Cairo::Surface> CanvasCairo2::get_image_surface(double scale)
+Cairo::RefPtr<Cairo::Surface> CanvasCairo2::get_image_surface(double scale, double gr)
 {
     double x0, y0, width, height;
     cairo_recording_surface_ink_extents(recording_surface, &x0, &y0, &width, &height);
     auto isurf = Cairo::ImageSurface::create(Cairo::Format::FORMAT_ARGB32, width * scale, height * scale);
     auto icr = Cairo::Context::create(isurf);
     icr->scale(scale, scale);
+    if (gr > 0) {
+        icr->save();
+        icr->translate(-x0, -y0);
+        icr->scale(2e-5, -2e-5);
+        icr->set_line_width(.05_mm);
+        icr->set_source_rgb(.8, .8, .8);
+
+        auto sz = gr / 4;
+        auto sc = 2e-5;
+
+        int xoff = (x0 / sc / gr) - 1;
+        int yoff = (y0 / sc / gr) - 1;
+        for (int x = 0; x < (width / sc / gr) + 1; x++) {
+            double rx = x + xoff;
+            for (int y = 0; y < (height / sc / gr) + 1; y++) {
+                double ry = y + yoff;
+                icr->save();
+
+                icr->translate(rx * gr, -ry * gr);
+
+                icr->move_to(-sz, 0);
+                icr->line_to(sz, 0);
+                icr->stroke();
+
+                icr->move_to(0, -sz);
+                icr->line_to(0, sz);
+                icr->stroke();
+
+                icr->restore();
+            }
+        }
+        icr->restore();
+    }
+
     icr->set_source(surface, -x0, -y0);
     icr->paint();
     return isurf;

@@ -453,6 +453,44 @@ int main(int c_argc, char *c_argv[])
                     ofs << "|Tags | " << qtags.get<std::string>(0) << "\n";
                 }
             }
+            ofs << "\n\n";
+            std::set<std::pair<UUID, UUID>> all_pins;
+            for (const auto &[gate_uu, gate] : part.entity->gates) {
+                for (const auto &[pin_uu, pin] : gate.unit->pins) {
+                    all_pins.emplace(gate_uu, pin_uu);
+                }
+            }
+            if (!part.base) {
+                ofs << "| Pad | Gate | Pin |\n";
+                ofs << "| --- | --- | --- |\n";
+                std::vector<UUID> pads_sorted;
+                for (const auto &it : part.package->pads) {
+                    pads_sorted.push_back(it.first);
+                }
+                std::sort(pads_sorted.begin(), pads_sorted.end(), [&part](const auto &a, const auto &b) {
+                    return strcmp_natural(part.package->pads.at(a).name, part.package->pads.at(b).name) < 0;
+                });
+
+                for (const auto &pad_uu : pads_sorted) {
+                    ofs << "| " << part.package->pads.at(pad_uu).name << " | ";
+                    if (part.pad_map.count(pad_uu)) {
+                        const auto &it = part.pad_map.at(pad_uu);
+                        ofs << it.gate->name << " | " << it.pin->primary_name << " |\n";
+                        all_pins.erase(std::make_pair(it.gate->uuid, it.pin->uuid));
+                    }
+                    else {
+                        ofs << " - | - |\n";
+                    }
+                }
+                ofs << "\n";
+                if (all_pins.size()) {
+                    ofs << ":x: unmapped pins:\n";
+                    for (const auto &[gate, pin] : all_pins) {
+                        ofs << " - " << part.entity->gates.at(gate).name << "."
+                            << part.entity->gates.at(gate).unit->pins.at(pin).primary_name << "\n";
+                    }
+                }
+            }
         }
     }
     ofs << "## Entities\n";
@@ -553,7 +591,7 @@ int main(int c_argc, char *c_argv[])
                         CanvasCairo2 ca;
                         ca.load(sym);
                         const std::string img_filename = "sym_" + static_cast<std::string>(sym.uuid) + ".png";
-                        ca.get_image_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
+                        ca.get_image_surface(1, 1.25_mm)->write_to_png(Glib::build_filename(images_dir, img_filename));
                         ofs << "![Symbol](" << images_prefix << img_filename << ")\n";
                     }
                     else {
@@ -575,7 +613,8 @@ int main(int c_argc, char *c_argv[])
                                 const std::string img_filename = "sym_" + static_cast<std::string>(sym.uuid) + "_"
                                                                  + (mirror ? "m" : "n") + std::to_string(angle)
                                                                  + ".png";
-                                ca.get_image_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
+                                ca.get_image_surface(1, 1.25_mm)
+                                        ->write_to_png(Glib::build_filename(images_dir, img_filename));
                                 ofs << "![Symbol](" << images_prefix << img_filename << ")\n\n";
                             }
                         }
