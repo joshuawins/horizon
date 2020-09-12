@@ -541,13 +541,45 @@ int main(int c_argc, char *c_argv[])
                 while (q_symbol.step()) {
                     has_sym = true;
                     Symbol sym = *pool.get_symbol(q_symbol.get<std::string>(0));
+                    for (auto &[uu, txt] : sym.texts) {
+                        if (txt.text == "$VALUE") {
+                            txt.text += "\nGroup\nTag";
+                        }
+                    }
                     sym.expand();
+                    sym.apply_placement(Placement());
                     ofs << "#### Symbol: " << sym.name << "\n";
-                    CanvasCairo2 ca;
-                    ca.load(sym);
-                    const std::string img_filename = "sym_" + static_cast<std::string>(sym.uuid) + ".png";
-                    ca.get_image_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
-                    ofs << "![Symbol](" << images_prefix << img_filename << ")\n";
+                    if (sym.text_placements.size() == 0) {
+                        CanvasCairo2 ca;
+                        ca.load(sym);
+                        const std::string img_filename = "sym_" + static_cast<std::string>(sym.uuid) + ".png";
+                        ca.get_image_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
+                        ofs << "![Symbol](" << images_prefix << img_filename << ")\n";
+                    }
+                    else {
+                        for (const auto mirror : {false, true}) {
+                            for (const auto angle : {0, 90, 180, 270}) {
+                                Placement pl;
+                                pl.set_angle_deg(angle);
+                                pl.mirror = mirror;
+                                if (mirror) {
+                                    ofs << "Mirrored";
+                                }
+                                else {
+                                    ofs << "Normal";
+                                }
+                                ofs << " " << angle << "°\n";
+                                sym.apply_placement(pl);
+                                CanvasCairo2 ca;
+                                ca.load(sym, pl);
+                                const std::string img_filename = "sym_" + static_cast<std::string>(sym.uuid) + "_"
+                                                                 + (mirror ? "m" : "n") + std::to_string(angle)
+                                                                 + ".png";
+                                ca.get_image_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
+                                ofs << "![Symbol](" << images_prefix << img_filename << ")\n\n";
+                            }
+                        }
+                    }
                 }
 
                 if (!has_sym) {

@@ -16,7 +16,7 @@ public:
     {
         return surface;
     }
-    void load(const class Symbol &sym);
+    void load(const class Symbol &sym, const Placement &placement = Placement());
     void load(const class Package &pkg);
     Cairo::RefPtr<Cairo::Surface> get_image_surface(double scale = 1);
 
