@@ -663,6 +663,7 @@ SRC_PR_REVIEW = \
 	3rd_party/poly2tri/sweep/sweep.cpp\
 	3rd_party/poly2tri/sweep/sweep_context.cpp\
 	3rd_party/poly2tri/sweep/advancing_front.cpp\
+	src/package/package_rules_check.cpp\
 
 SRC_OCE = \
 	src/util/step_importer.cpp\

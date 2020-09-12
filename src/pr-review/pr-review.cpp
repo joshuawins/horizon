@@ -102,7 +102,6 @@ int main(int c_argc, char *c_argv[])
     PoolManager::init();
     git_libgit2_init();
 
-
     Glib::OptionContext options;
     options.set_summary("horizon pr review");
     options.set_help_enabled();
@@ -532,7 +531,7 @@ int main(int c_argc, char *c_argv[])
                 }
             }
             else {
-                ofs << ":warning: Unit has no pins!\n";
+                ofs << ":x: Unit has no pins!\n";
             }
 
             {
@@ -545,19 +544,80 @@ int main(int c_argc, char *c_argv[])
                     sym.expand();
                     ofs << "#### Symbol: " << sym.name << "\n";
                     CanvasCairo2 ca;
-                    ca.update(sym);
+                    ca.load(sym);
                     const std::string img_filename = "sym_" + static_cast<std::string>(sym.uuid) + ".png";
                     ca.get_image_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
                     ofs << "![Symbol](" << images_prefix << img_filename << ")\n";
                 }
 
                 if (!has_sym) {
-                    ofs << ":warning: Unit has no symbols!\n";
+                    ofs << ":x: Unit has no symbols!\n";
                 }
             }
         }
     }
 
+    {
+        ofs << "## Packages\n";
+        SQLite::Query q(pool.db, "SELECT DISTINCT uuid from git_files_view where type = 'package'");
+        while (q.step()) {
+            Package pkg = *pool.get_package(q.get<std::string>(0));
+            pkg.expand();
+            ofs << "### " << pkg.name << "\n";
+            ofs << "| Attribute | Value |\n";
+            ofs << "| --- | --- |\n";
+            ofs << "|Manufacturer | " << pkg.manufacturer << " (" << count_manufactuer(pool, pkg.manufacturer)
+                << " other parts)\n";
+            {
+                SQLite::Query qtags(pool.db, "SELECT tags FROM tags_view WHERE type = 'package' AND uuid = ?");
+                qtags.bind(1, pkg.uuid);
+                if (qtags.step()) {
+                    ofs << "|Tags | " << qtags.get<std::string>(0) << "\n";
+                }
+            }
+            ofs << "\n";
+
+            if (auto r = pkg.apply_parameter_set({}); r.first) {
+                ofs << ":x: Error applying parameter set: " << r.second << "\n\n";
+            }
+            {
+                auto r = pkg.rules.check(RuleID::PACKAGE_CHECKS, pkg);
+                if (r.level != RulesCheckErrorLevel::PASS) {
+                    ofs << "Checks didn't pass\n";
+                    for (const auto &error : r.errors) {
+                        ofs << " - ";
+                        switch (error.level) {
+                        case RulesCheckErrorLevel::WARN:
+                            ofs << ":warning: ";
+                            break;
+                        case RulesCheckErrorLevel::FAIL:
+                            ofs << ":x: ";
+                            break;
+                        default:
+                            ofs << rules_check_error_level_to_string(error.level) << " ";
+                        }
+                        ofs << error.comment << "\n";
+                    }
+                }
+                else {
+                    ofs << ":heavy_check_mark: Checks passed\n";
+                }
+                ofs << "\n";
+            }
+            for (auto &[uu, txt] : pkg.texts) {
+                if (txt.text == "$RD") {
+                    txt.text = "M1234";
+                }
+            }
+
+            ofs << "\n";
+            CanvasCairo2 ca;
+            ca.load(pkg);
+            const std::string img_filename = "pkg_" + static_cast<std::string>(pkg.uuid) + ".png";
+            ca.get_image_surface(5)->write_to_png(Glib::build_filename(images_dir, img_filename));
+            ofs << "![Package](" << images_prefix << img_filename << ")\n";
+        }
+    }
 
     return 0;
 }
