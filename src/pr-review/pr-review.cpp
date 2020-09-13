@@ -625,8 +625,8 @@ int main(int c_argc, char *c_argv[])
                         ofs << "![Symbol](" << images_prefix << img_filename << ")\n";
                     }
                     else {
-                        for (const auto mirror : {false, true}) {
-                            for (const auto angle : {0, 90, 180, 270}) {
+                        for (const auto angle : {0, 90, 180, 270}) {
+                            for (const auto mirror : {false, true}) {
                                 Placement pl;
                                 pl.set_angle_deg(angle);
                                 pl.mirror = mirror;
@@ -646,8 +646,13 @@ int main(int c_argc, char *c_argv[])
                                 ca.get_image_surface(1, 1.25_mm)
                                         ->write_to_png(Glib::build_filename(images_dir, img_filename));
                                 ofs << "![Symbol](" << images_prefix << img_filename << ")\n\n";
+
+                                if (angle == 0 && mirror == false) {
+                                    ofs << "<details>\n<summary>Other orientations</summary>\n\n";
+                                }
                             }
                         }
+                        ofs << "</details>\n\n";
                     }
                 }
 
