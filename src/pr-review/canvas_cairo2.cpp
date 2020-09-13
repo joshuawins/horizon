@@ -92,6 +92,19 @@ Cairo::RefPtr<Cairo::Surface> CanvasCairo2::get_image_surface(double scale, doub
                 icr->restore();
             }
         }
+
+        {
+            icr->set_source_rgb(.8, 0, 0);
+
+            icr->move_to(-2 * sz, 0);
+            icr->line_to(2 * sz, 0);
+            icr->stroke();
+
+            icr->move_to(0, -2 * sz);
+            icr->line_to(0, 2 * sz);
+            icr->stroke();
+        }
+
         icr->restore();
     }
 
