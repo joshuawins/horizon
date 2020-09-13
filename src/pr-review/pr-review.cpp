@@ -14,6 +14,7 @@
 #include "pool-update/pool-update.hpp"
 #include "common/object_descr.hpp"
 #include "canvas_cairo2.hpp"
+#include "util/version.hpp"
 
 using namespace horizon;
 
@@ -187,6 +188,9 @@ int main(int c_argc, char *c_argv[])
     }
 
     auto ofs = make_ofstream(output_filename);
+
+    ofs << "This review is brought to you by the Horizon EDA Poolbot commit [" << Version::commit_hash
+        << "](https://github.com/horizon-eda/horizon/commit/" << Version::commit_hash << ").\n\n";
 
     auto pool_base_path = filenames.at(0);
     if (do_pool_update) {
