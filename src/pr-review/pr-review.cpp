@@ -96,6 +96,30 @@ static std::optional<std::string> check_datasheet(const std::string &url)
     return {};
 }
 
+static void print_rules_check_result(std::ostream &ofs, const RulesCheckResult &r)
+{
+    if (r.level != RulesCheckErrorLevel::PASS) {
+        ofs << "Checks didn't pass\n";
+        for (const auto &error : r.errors) {
+            ofs << " - ";
+            switch (error.level) {
+            case RulesCheckErrorLevel::WARN:
+                ofs << ":warning: ";
+                break;
+            case RulesCheckErrorLevel::FAIL:
+                ofs << ":x: ";
+                break;
+            default:
+                ofs << rules_check_error_level_to_string(error.level) << " ";
+            }
+            ofs << error.comment << "\n";
+        }
+    }
+    else {
+        ofs << ":heavy_check_mark: Checks passed\n";
+    }
+}
+
 int main(int c_argc, char *c_argv[])
 {
     Gio::init();
@@ -579,14 +603,20 @@ int main(int c_argc, char *c_argv[])
                 while (q_symbol.step()) {
                     has_sym = true;
                     Symbol sym = *pool.get_symbol(q_symbol.get<std::string>(0));
+                    sym.expand();
+                    ofs << "#### Symbol: " << sym.name << "\n";
+                    {
+                        auto r = sym.rules.check(RuleID::SYMBOL_CHECKS, sym);
+                        print_rules_check_result(ofs, r);
+                        ofs << "\n";
+                    }
+                    sym.apply_placement(Placement());
                     for (auto &[uu, txt] : sym.texts) {
                         if (txt.text == "$VALUE") {
                             txt.text += "\nGroup\nTag";
                         }
                     }
-                    sym.expand();
-                    sym.apply_placement(Placement());
-                    ofs << "#### Symbol: " << sym.name << "\n";
+
                     if (sym.text_placements.size() == 0) {
                         CanvasCairo2 ca;
                         ca.load(sym);
@@ -653,26 +683,7 @@ int main(int c_argc, char *c_argv[])
             }
             {
                 auto r = pkg.rules.check(RuleID::PACKAGE_CHECKS, pkg);
-                if (r.level != RulesCheckErrorLevel::PASS) {
-                    ofs << "Checks didn't pass\n";
-                    for (const auto &error : r.errors) {
-                        ofs << " - ";
-                        switch (error.level) {
-                        case RulesCheckErrorLevel::WARN:
-                            ofs << ":warning: ";
-                            break;
-                        case RulesCheckErrorLevel::FAIL:
-                            ofs << ":x: ";
-                            break;
-                        default:
-                            ofs << rules_check_error_level_to_string(error.level) << " ";
-                        }
-                        ofs << error.comment << "\n";
-                    }
-                }
-                else {
-                    ofs << ":heavy_check_mark: Checks passed\n";
-                }
+                print_rules_check_result(ofs, r);
                 ofs << "\n";
             }
             for (auto &[uu, txt] : pkg.texts) {
