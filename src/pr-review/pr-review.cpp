@@ -604,13 +604,13 @@ int main(int c_argc, char *c_argv[])
                     has_sym = true;
                     Symbol sym = *pool.get_symbol(q_symbol.get<std::string>(0));
                     sym.expand();
+                    sym.apply_placement(Placement());
                     ofs << "#### Symbol: " << sym.name << "\n";
                     {
                         auto r = sym.rules.check(RuleID::SYMBOL_CHECKS, sym);
                         print_rules_check_result(ofs, r);
                         ofs << "\n";
                     }
-                    sym.apply_placement(Placement());
                     for (auto &[uu, txt] : sym.texts) {
                         if (txt.text == "$VALUE") {
                             txt.text += "\nGroup\nTag";
