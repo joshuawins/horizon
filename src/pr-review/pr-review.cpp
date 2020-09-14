@@ -711,6 +711,19 @@ int main(int c_argc, char *c_argv[])
                 ca.get_image_surface(5)->write_to_png(Glib::build_filename(images_dir, img_filename));
                 ofs << "![Package](" << images_prefix << img_filename << ")\n";
             }
+            ofs << "<details>\n<summary>Parameters</summary>\n\n";
+            ofs << "| Parameter | Value |\n";
+            ofs << "| --- | --- |\n";
+            for (const auto &[param, value] : pkg.parameter_set) {
+                ofs << "| " << parameter_id_to_name(param) << " | " << dim_to_string(value, false) << "|\n";
+            }
+            ofs << "\n\n";
+            ofs << "```\n";
+            ofs << pkg.parameter_program.get_code();
+            ofs << "\n```\n\n";
+            ofs << "</details>\n\n";
+
+
             ofs << "<details>\n<summary>3D views</summary>\n\n";
             {
                 Block fake_block(UUID::random());
