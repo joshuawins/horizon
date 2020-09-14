@@ -40,6 +40,12 @@ static std::string delta_to_string(git_delta_t delta)
     case GIT_DELTA_MODIFIED:
         return "Modified";
 
+    case GIT_DELTA_DELETED:
+        return "Deleted";
+
+    case GIT_DELTA_RENAMED:
+        return "Renamed";
+
     default:
         return "Unknown (" + std::to_string(static_cast<int>(delta)) + ")";
     }
@@ -276,8 +282,10 @@ int main(int c_argc, char *c_argv[])
 
     {
         SQLite::Query q(pool.db,
-                        "SELECT git_filename FROM git_files LEFT JOIN all_items_view ON "
-                        "filename=git_filename WHERE filename is NULL");
+                        "SELECT git_filename FROM git_files LEFT JOIN "
+                        "(SELECT filename FROM all_items_view "
+                        "UNION ALL SELECT DISTINCT model_filename as filename FROM models) "
+                        "ON filename=git_filename WHERE filename is NULL");
         bool first = true;
         while (q.step()) {
             if (first) {
@@ -286,7 +294,24 @@ int main(int c_argc, char *c_argv[])
             }
             ofs << " - " << q.get<std::string>(0) << "\n";
         }
-        ofs << "\n";
+        ofs << "\n\n";
+    }
+
+    {
+        SQLite::Query q(pool.db, "SELECT status, git_filename FROM git_files WHERE status != ?");
+        q.bind(1, static_cast<int>(GIT_DELTA_ADDED));
+        bool first = true;
+        while (q.step()) {
+            if (first) {
+                ofs << "# Non-new files\n";
+                ofs << "| Status | File |\n";
+                ofs << "| --- | --- |\n";
+                first = false;
+            }
+            ofs << "| " << delta_to_string(static_cast<git_delta_t>(q.get<int>(0))) << " | " << q.get<std::string>(1)
+                << "|\n";
+        }
+        ofs << "\n\n";
     }
 
     pool.db.execute(
@@ -366,7 +391,8 @@ int main(int c_argc, char *c_argv[])
                         "AND git_files_view.type = all_parts_tree.type "
                         "LEFT JOIN derived_parts_tree ON git_files_view.uuid = derived_parts_tree.uuid "
                         "AND git_files_view.type = 'part' "
-                        "WHERE all_parts_tree.uuid IS NULL AND derived_parts_tree.uuid IS NULL");
+                        "WHERE all_parts_tree.uuid IS NULL AND derived_parts_tree.uuid IS NULL "
+                        "AND git_files_view.type != 'model_3d'");
         while (q.step()) {
             if (first)
                 ofs << "# Items not associated with any part\n";
@@ -430,7 +456,7 @@ int main(int c_argc, char *c_argv[])
                             ofs << "| " << surround_if("*", "*", qtags.get<std::string>(0), part.inherit_tags);
                         }
                     }
-                    ofs << "\n";
+                    ofs << "\n\n";
                 }
             }
         }
