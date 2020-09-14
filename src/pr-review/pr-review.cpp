@@ -493,7 +493,8 @@ int main(int c_argc, char *c_argv[])
                 ofs << "| --- | --- | --- |\n";
                 std::vector<UUID> pads_sorted;
                 for (const auto &it : part.package->pads) {
-                    pads_sorted.push_back(it.first);
+                    if (it.second.pool_padstack->type != Padstack::Type::MECHANICAL)
+                        pads_sorted.push_back(it.first);
                 }
                 std::sort(pads_sorted.begin(), pads_sorted.end(), [&part](const auto &a, const auto &b) {
                     return strcmp_natural(part.package->pads.at(a).name, part.package->pads.at(b).name) < 0;
@@ -571,7 +572,7 @@ int main(int c_argc, char *c_argv[])
             ofs << "|Manufacturer | " << unit.manufacturer << " (" << count_manufactuer(pool, unit.manufacturer)
                 << " other parts)\n";
 
-            ofs << "\n";
+            ofs << "\n\n";
 
             std::vector<const Pin *> pins_sorted;
             for (const auto &it : unit.pins) {
@@ -610,6 +611,9 @@ int main(int c_argc, char *c_argv[])
                     sym.expand();
                     sym.apply_placement(Placement());
                     ofs << "#### Symbol: " << sym.name << "\n";
+                    if (sym.can_expand) {
+                        ofs << "Is expandable\n\n";
+                    }
                     {
                         auto r = sym.rules.check(RuleID::SYMBOL_CHECKS, sym);
                         print_rules_check_result(ofs, r);
@@ -670,6 +674,9 @@ int main(int c_argc, char *c_argv[])
             ofs << "| --- | --- |\n";
             ofs << "|Manufacturer | " << pkg.manufacturer << " (" << count_manufactuer(pool, pkg.manufacturer)
                 << " other parts)\n";
+            if (pkg.alternate_for) {
+                ofs << "|Alt. for | " << pkg.alternate_for->name << "\n";
+            }
             {
                 SQLite::Query qtags(pool.db, "SELECT tags FROM tags_view WHERE type = 'package' AND uuid = ?");
                 qtags.bind(1, pkg.uuid);
