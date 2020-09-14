@@ -23,6 +23,7 @@ public:
 private:
     void img_polygon(const Polygon &poly, bool tr) override;
     void img_line(const Coordi &p0, const Coordi &p1, const uint64_t width, int layer, bool tr = true) override;
+    void img_hole(const Hole &hole) override;
     void render_pad_names(const Package &pkg);
     void draw_text_box(const Placement &q, float width, float height, const std::string &s, ColorP color, int layer,
                        uint64_t text_width, TextBoxMode mode);

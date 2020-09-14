@@ -54,6 +54,31 @@ void CanvasCairo2::img_polygon(const Polygon &ipoly, bool tr)
         cr->stroke();
 }
 
+static double get_comp(uint32_t color, uint8_t s)
+{
+    return ((color >> (s * 8)) & 0xff) / 255.;
+}
+
+static void set_source_from_hex(Cairo::RefPtr<Cairo::Context> &cr, uint32_t c)
+{
+    cr->set_source_rgba(get_comp(c, 3), get_comp(c, 2), get_comp(c, 1), get_comp(c, 0));
+}
+
+void CanvasCairo2::img_hole(const Hole &hole)
+{
+    auto poly = hole.to_polygon();
+    poly.layer = 10001;
+    cr->save();
+    if (hole.plated) {
+        set_source_from_hex(cr, 0xce5c00'ff);
+    }
+    else {
+        set_source_from_hex(cr, 0x2e3436'ff);
+    }
+    img_polygon(poly, true);
+    cr->restore();
+}
+
 Cairo::RefPtr<Cairo::Surface> CanvasCairo2::get_image_surface(double scale, double gr)
 {
     double x0, y0, width, height;
@@ -141,11 +166,6 @@ struct LayerInfo {
     uint32_t color;
 };
 
-static double get_comp(uint32_t color, uint8_t s)
-{
-    return ((color >> (s * 8)) & 0xff) / 255.;
-}
-
 void CanvasCairo2::load(const class Package &pkg)
 {
     static const std::vector<LayerInfo> layers = {
@@ -156,17 +176,17 @@ void CanvasCairo2::load(const class Package &pkg)
             {BoardLayers::TOP_PACKAGE, LayerInfo::Mode::STROKE, 0x729fcf'ff},
             {BoardLayers::TOP_ASSEMBLY, LayerInfo::Mode::STROKE, 0x73d216'ff},
             {BoardLayers::TOP_COURTYARD, LayerInfo::Mode::STROKE, 0x5c3566'80},
+            {10001, LayerInfo::Mode::FILL, 0}, // holes
     };
     layer_filter = true;
     for (const auto &layer_info : layers) {
         current_layer = layer_info.layer;
         min_line_width = 0.025_mm;
         fill = layer_info.mode != LayerInfo::Mode::STROKE;
-        cr->set_source_rgba(get_comp(layer_info.color, 3), get_comp(layer_info.color, 2), get_comp(layer_info.color, 1),
-                            get_comp(layer_info.color, 0));
+        set_source_from_hex(cr, layer_info.color);
         clear();
         update(pkg, false);
-        if (layer_info.layer == BoardLayers::TOP_COPPER) {
+        if (layer_info.layer == 10001) {
             cr->set_source_rgb(1, 1, 1);
             min_line_width = 0.025_mm;
             render_pad_names(pkg);
@@ -179,7 +199,7 @@ void CanvasCairo2::render_pad_names(const Package &pkg)
     for (const auto &it : pkg.pads) {
         transform_save();
         transform.accumulate(it.second.placement);
-        auto bb = it.second.padstack.get_bbox(true); // only copper
+        auto bb = it.second.padstack.get_bbox(false); // all
         auto a = bb.first;
         auto b = bb.second;
 
