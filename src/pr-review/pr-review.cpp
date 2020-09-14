@@ -15,6 +15,9 @@
 #include "common/object_descr.hpp"
 #include "canvas_cairo2.hpp"
 #include "util/version.hpp"
+#include "board/board.hpp"
+#include "export_3d_image/export_3d_image.hpp"
+#include "pool/pool_cached.hpp"
 
 using namespace horizon;
 
@@ -701,11 +704,108 @@ int main(int c_argc, char *c_argv[])
             }
 
             ofs << "\n";
-            CanvasCairo2 ca;
-            ca.load(pkg);
-            const std::string img_filename = "pkg_" + static_cast<std::string>(pkg.uuid) + ".png";
-            ca.get_image_surface(5)->write_to_png(Glib::build_filename(images_dir, img_filename));
-            ofs << "![Package](" << images_prefix << img_filename << ")\n";
+            {
+                CanvasCairo2 ca;
+                ca.load(pkg);
+                const std::string img_filename = "pkg_" + static_cast<std::string>(pkg.uuid) + ".png";
+                ca.get_image_surface(5)->write_to_png(Glib::build_filename(images_dir, img_filename));
+                ofs << "![Package](" << images_prefix << img_filename << ")\n";
+            }
+            ofs << "<details>\n<summary>3D views</summary>\n\n";
+            {
+                Block fake_block(UUID::random());
+                Board fake_board(UUID::random(), fake_block);
+                fake_board.set_n_inner_layers(0);
+                {
+                    auto uu = UUID::random();
+                    auto &poly = fake_board.polygons.emplace(uu, uu).first->second;
+                    poly.layer = BoardLayers::L_OUTLINE;
+
+                    auto bb = pkg.get_bbox();
+                    bb.first -= Coordi(5_mm, 5_mm);
+                    bb.second += Coordi(5_mm, 5_mm);
+
+                    poly.vertices.emplace_back(bb.first);
+                    poly.vertices.emplace_back(Coordi(bb.first.x, bb.second.y));
+                    poly.vertices.emplace_back(bb.second);
+                    poly.vertices.emplace_back(Coordi(bb.second.x, bb.first.y));
+                }
+
+                fake_board.packages.clear();
+                auto fake_pkg_uu = UUID::random();
+                auto &fake_package = fake_board.packages.emplace(fake_pkg_uu, fake_pkg_uu).first->second;
+                fake_package.package = pkg;
+                fake_package.pool_package = &pkg;
+
+                Image3DExporter ex(fake_board, pool, 500, 500);
+                ex.view_all();
+                ex.show_models = false;
+                ex.projection = Canvas3DBase::Projection::ORTHO;
+
+                ofs << "#### Without model \n";
+                ofs << "| Top | Bottom |\n";
+                ofs << "| --- | --- |\n";
+
+                {
+                    const std::string img_filename =
+                            "pkg_" + static_cast<std::string>(pkg.uuid) + "_3d_top_no_model.png";
+                    ex.render_to_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
+                    ofs << "| ![3D](" << images_prefix << img_filename << ") ";
+                }
+                {
+                    const std::string img_filename =
+                            "pkg_" + static_cast<std::string>(pkg.uuid) + "_3d_bottom_no_model.png";
+                    ex.cam_elevation = -89.99;
+                    ex.cam_azimuth = 90;
+                    ex.render_to_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
+                    ofs << "| ![3D](" << images_prefix << img_filename << ") ";
+                }
+
+                ofs << "\n\n";
+                ex.show_models = true;
+                ex.view_all();
+                for (const auto &[model_uu, model] : pkg.models) {
+                    fake_package.model = model_uu;
+                    ex.load_3d_models();
+                    ex.view_all();
+                    ofs << "#### " << Glib::path_get_basename(model.filename) << "\n";
+                    ofs << "| Top | Bottom |\n";
+                    ofs << "| --- | --- |\n";
+
+                    {
+                        const std::string img_filename = "pkg_" + static_cast<std::string>(pkg.uuid) + "_3d_top_"
+                                                         + static_cast<std::string>(model_uu) + ".png";
+                        ex.render_to_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
+                        ofs << "| ![3D](" << images_prefix << img_filename << ") ";
+                    }
+                    {
+                        const std::string img_filename = "pkg_" + static_cast<std::string>(pkg.uuid) + "_3d_bottom_"
+                                                         + static_cast<std::string>(model_uu) + ".png";
+                        ex.cam_elevation = -89.99;
+                        ex.cam_azimuth = 90;
+                        ex.render_to_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
+                        ofs << "| ![3D](" << images_prefix << img_filename << ") ";
+                    }
+
+                    ofs << "\n\n";
+
+                    ofs << "| South  | East | North | West |\n";
+                    ofs << "| --- | --- | --- | --- |\n";
+                    ex.view_all();
+                    ex.cam_elevation = 45;
+                    ex.projection = Canvas3DBase::Projection::PERSP;
+                    for (const int az : {270, 0, 90, 180}) {
+                        ex.cam_azimuth = az;
+                        const std::string img_filename = "pkg_" + static_cast<std::string>(pkg.uuid) + "_3d_"
+                                                         + std::to_string(az) + "_" + static_cast<std::string>(model_uu)
+                                                         + ".png";
+                        ex.render_to_surface()->write_to_png(Glib::build_filename(images_dir, img_filename));
+                        ofs << "| ![3D](" << images_prefix << img_filename << ") ";
+                    }
+                    ofs << "\n\n";
+                }
+            }
+            ofs << "</details>\n\n";
         }
     }
 
