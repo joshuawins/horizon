@@ -119,6 +119,9 @@ static void print_rules_check_result(std::ostream &ofs, const RulesCheckResult &
             case RulesCheckErrorLevel::FAIL:
                 ofs << ":x: ";
                 break;
+            case RulesCheckErrorLevel::PASS:
+                ofs << ":heavy_check_mark: ";
+                break;
             default:
                 ofs << rules_check_error_level_to_string(error.level) << " ";
             }
