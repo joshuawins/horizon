@@ -441,7 +441,7 @@ int main(int c_argc, char *c_argv[])
             }
             {
                 ofs << "# Parts table\n";
-                ofs << "Values in italic are inherited\n";
+                ofs << "Values in italic are inherited\n\n";
                 ofs << "| MPN | Value | Manufacturer | Datasheet | Description | Tags |\n";
                 ofs << "| --- | ----- | ------------ | --------- | ----------- | ---- |\n";
                 SQLite::Query q(pool.db, "SELECT uuid FROM derived_parts_tree");
@@ -479,7 +479,7 @@ int main(int c_argc, char *c_argv[])
             const auto &part = *pool.get_part(q.get<std::string>(0));
             ofs << "### " << part.get_MPN() << "\n";
             if (part.base)
-                ofs << "Inerhits from " << part.base->get_MPN() << "\n";
+                ofs << "Inerhits from " << part.base->get_MPN() << "\n\n";
             ofs << "| Attribute | Value |\n";
             ofs << "| --- | --- |\n";
             static const std::vector<std::pair<Part::Attribute, std::string>> attrs = {
@@ -520,6 +520,15 @@ int main(int c_argc, char *c_argv[])
                 }
             }
             ofs << "\n\n";
+
+            if (part.orderable_MPNs.size()) {
+                ofs << "Orderable MPNs\n";
+                for (const auto &[uu, MPN] : part.orderable_MPNs) {
+                    ofs << " - " << MPN << "\n";
+                }
+                ofs << "\n";
+            }
+
             std::set<std::pair<UUID, UUID>> all_pins;
             for (const auto &[gate_uu, gate] : part.entity->gates) {
                 for (const auto &[pin_uu, pin] : gate.unit->pins) {
