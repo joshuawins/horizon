@@ -460,8 +460,9 @@ int main(int c_argc, char *c_argv[])
                             ofs << "| " << surround_if("*", "*", qtags.get<std::string>(0), part.inherit_tags);
                         }
                     }
-                    ofs << "\n\n";
+                    ofs << "\n";
                 }
+                ofs << "\n";
             }
         }
     }
