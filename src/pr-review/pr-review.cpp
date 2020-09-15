@@ -217,11 +217,14 @@ int main(int c_argc, char *c_argv[])
                 },
                 true);
         if (errors.size()) {
-            ofs << "# Pool update encountered errors\n";
+            ofs << "# :bomb: Pool update encountered errors\n";
+            ofs << "| File | Detail |\n";
+            ofs << "| --- | --- |\n";
             for (const auto &[filename, detail] : errors) {
-                ofs << " -" << filename << " " << detail << "\n";
+                ofs << "| " << filename << " | " << detail << " |\n";
             }
-            return 1;
+            ofs << "\n\n";
+            return 0;
         }
     }
 
