@@ -127,7 +127,11 @@ static void print_rules_check_result(std::ostream &ofs, const RulesCheckResult &
     }
     else {
         ofs << ":heavy_check_mark: Checks passed\n";
+        for (const auto &error : r.errors) {
+            ofs << " - " << error.comment << "\n";
+        }
     }
+    ofs << "\n";
 }
 
 int main(int c_argc, char *c_argv[])
