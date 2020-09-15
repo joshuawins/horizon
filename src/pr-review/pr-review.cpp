@@ -350,17 +350,18 @@ int main(int c_argc, char *c_argv[])
             "AND where_used.uuidx = all_items_view.uuid");
     pool.db.execute(
             "CREATE TEMP VIEW derived_parts_tree AS "
-            "WITH RECURSIVE where_used(uuidx, level) AS ( SELECT part_uuid, 0 "
+            "WITH RECURSIVE where_used(uuidx, level, root) AS ( SELECT part_uuid, 0, part_uuid "
             "FROM top_parts UNION "
-            "SELECT parts.uuid, level+1 FROM parts, where_used "
+            "SELECT parts.uuid, level+1, root FROM parts, where_used "
             "WHERE parts.base = where_used.uuidx) "
             "SELECT parts.MPN, level, "
             "(SELECT COUNT(*) from git_files_view "
             "WHERE git_files_view.uuid = where_used.uuidx AND "
             "git_files_view.type = 'part') AS in_pr, "
-            "where_used.uuidx AS uuid "
+            "where_used.uuidx AS uuid, root "
             "FROM where_used "
-            "LEFT JOIN parts ON where_used.uuidx = parts.uuid");
+            "LEFT JOIN parts ON where_used.uuidx = parts.uuid "
+            "ORDER BY root, level");
     pool.db.execute(
             "CREATE TEMP VIEW all_parts_tree AS "
             "SELECT * FROM ("
