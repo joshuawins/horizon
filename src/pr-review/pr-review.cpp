@@ -771,7 +771,20 @@ int main(int c_argc, char *c_argv[])
             ofs << "</details>\n\n";
 
 
-            ofs << "<details>\n<summary>3D views</summary>\n\n";
+            ofs << "<details>\n<summary>3D views (";
+            {
+                const auto n_models = pkg.models.size();
+                if (n_models == 0) {
+                    ofs << "no models";
+                }
+                else if (n_models == 1) {
+                    ofs << "one model";
+                }
+                else {
+                    ofs << n_models << " models";
+                }
+            }
+            ofs << ")</summary>\n\n";
             {
                 Block fake_block(UUID::random());
                 Board fake_board(UUID::random(), fake_block);
