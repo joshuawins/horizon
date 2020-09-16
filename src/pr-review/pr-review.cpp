@@ -879,6 +879,43 @@ int main(int c_argc, char *c_argv[])
                 }
             }
             ofs << "</details>\n\n";
+
+            if (pkg.pads.size() > 1) {
+                ofs << "<details>\n<summary>Pitch analysis</summary>\n\n";
+                std::vector<const Pad *> pads_sorted;
+                for (const auto &[pad_uu, pad] : pkg.pads) {
+                    if (pad.pool_padstack->type != Padstack::Type::MECHANICAL)
+                        pads_sorted.push_back(&pad);
+                }
+                std::sort(pads_sorted.begin(), pads_sorted.end(),
+                          [](const auto a, const auto b) { return strcmp_natural(a->name, b->name) < 0; });
+                std::map<Coordi, unsigned int> pitches;
+                for (size_t i = 0; i < pads_sorted.size(); i++) {
+                    const auto i_next = (i + 1) % pads_sorted.size();
+                    const auto d = pads_sorted.at(i_next)->placement.shift - pads_sorted.at(i)->placement.shift;
+                    const Coordi da(std::abs(d.x), std::abs(d.y));
+                    if (pitches.count(da))
+                        pitches.at(da)++;
+                    else
+                        pitches.emplace(da, 1);
+                }
+                ofs << "| X | Y | Count |\n";
+                ofs << "| --- | --- | --- |\n";
+                {
+                    std::vector<std::pair<Coordi, unsigned int>> pitches_sorted;
+                    for (const auto &it : pitches) {
+                        pitches_sorted.push_back(it);
+                    }
+                    std::sort(pitches_sorted.begin(), pitches_sorted.end(),
+                              [](const auto &a, const auto &b) { return a.second > b.second; });
+                    for (const auto &[delta, count] : pitches_sorted) {
+                        ofs << "| " << dim_to_string(delta.x, false) << " | " << dim_to_string(delta.y, false) << " | "
+                            << count << "\n";
+                    }
+                }
+                ofs << "\n\n";
+                ofs << "</details>\n\n";
+            }
         }
     }
 
