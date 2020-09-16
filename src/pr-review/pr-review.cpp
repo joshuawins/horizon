@@ -797,7 +797,7 @@ int main(int c_argc, char *c_argv[])
                 fake_package.package = pkg;
                 fake_package.pool_package = &pkg;
 
-                Image3DExporter ex(fake_board, pool, 500, 500);
+                Image3DExporter ex(fake_board, pool, 1024, 1024);
                 ex.view_all();
                 ex.show_models = false;
                 ex.projection = Canvas3DBase::Projection::ORTHO;
