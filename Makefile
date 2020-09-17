@@ -676,6 +676,10 @@ SRC_PR_REVIEW = \
 	src/symbol/symbol_rules_check.cpp\
 	src/util/step_importer.cpp\
 	src/util/clipper_util.cpp\
+	src/checks/check_util.cpp\
+	src/checks/check_entity.cpp\
+	src/checks/check_unit.cpp\
+	src/checks/check_part.cpp\
 
 SRC_OCE = \
 	src/util/step_importer.cpp\

@@ -18,6 +18,10 @@
 #include "board/board.hpp"
 #include "export_3d_image/export_3d_image.hpp"
 #include "pool/pool_cached.hpp"
+#include "checks/check_entity.hpp"
+#include "checks/check_part.hpp"
+#include "checks/check_unit.hpp"
+#include "checks/check_util.hpp"
 
 using namespace horizon;
 
@@ -67,13 +71,7 @@ static std::string surround_if(const char *prefix, const char *suffix, const std
         return s;
 }
 
-static bool needs_trim(const std::string &s)
-{
-    return s.size() && (isspace(s.front()) || isspace(s.back()));
-}
-
 static const std::string whitespace_warning = "(:warning: has trailing/leading whitespace)";
-
 class PinDirectionMap {
 public:
     const std::map<Pin::Direction, std::string> &get()
@@ -92,19 +90,6 @@ private:
 };
 
 static PinDirectionMap pin_direction_map;
-
-static const std::vector<std::string> forbidden_datasheet_domains = {
-        "rs-online.com", "digikey.com", "mouser.com", "farnell.com", "octopart.com",
-};
-
-static std::optional<std::string> check_datasheet(const std::string &url)
-{
-    for (const auto &it : forbidden_datasheet_domains) {
-        if (url.find(it) != std::string::npos)
-            return it;
-    }
-    return {};
-}
 
 static void print_rules_check_result(std::ostream &ofs, const RulesCheckResult &r)
 {
@@ -483,6 +468,8 @@ int main(int c_argc, char *c_argv[])
             ofs << "### " << part.get_MPN() << "\n";
             if (part.base)
                 ofs << "Inerhits from " << part.base->get_MPN() << "\n\n";
+            print_rules_check_result(ofs, check_part(part));
+
             ofs << "| Attribute | Value |\n";
             ofs << "| --- | --- |\n";
             static const std::vector<std::pair<Part::Attribute, std::string>> attrs = {
@@ -499,16 +486,6 @@ int main(int c_argc, char *c_argv[])
                     ofs << " " << whitespace_warning;
                 if (attr == Part::Attribute::MANUFACTURER) {
                     ofs << " (" << count_manufactuer(pool, val) << " other parts)";
-                }
-                else if (attr == Part::Attribute::DATASHEET) {
-                    auto r = check_datasheet(val);
-                    if (r) {
-                        ofs << " (:warning: forbidden domain " << *r << ", use primary source)";
-                    }
-                }
-                else if (attr == Part::Attribute::VALUE) {
-                    if (val == part.get_attribute(Part::Attribute::MPN))
-                        ofs << " (:warning: leave value blank if it's identical to MPN)";
                 }
                 if (part.attributes.at(attr).first) {
                     ofs << " (inherited)";
@@ -578,6 +555,9 @@ int main(int c_argc, char *c_argv[])
         while (q.step()) {
             const auto &entity = *pool.get_entity(q.get<std::string>(0));
             ofs << "### " << entity.name << "\n";
+
+            print_rules_check_result(ofs, check_entity(entity));
+
             ofs << "| Attribute | Value |\n";
             ofs << "| --- | --- |\n";
             ofs << "|Manufacturer | " << entity.manufacturer << " (" << count_manufactuer(pool, entity.manufacturer)
@@ -617,6 +597,9 @@ int main(int c_argc, char *c_argv[])
         while (q.step()) {
             const auto &unit = *pool.get_unit(q.get<std::string>(0));
             ofs << "### " << unit.name << "\n";
+
+            print_rules_check_result(ofs, check_unit(unit));
+
             ofs << "| Attribute | Value |\n";
             ofs << "| --- | --- |\n";
             ofs << "|Manufacturer | " << unit.manufacturer << " (" << count_manufactuer(pool, unit.manufacturer)
