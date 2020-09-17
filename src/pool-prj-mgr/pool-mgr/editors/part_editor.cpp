@@ -114,7 +114,7 @@ public:
         bu->show();
         pack_start(*bu, false, false, 0);
         bu->signal_clicked().connect([this] {
-            entry->set_text("");
+            part.orderable_MPNs.erase(uuid);
             s_signal_changed.emit();
             delete this;
         });
@@ -230,12 +230,12 @@ PartEditor::PartEditor(BaseObjectType *cobject, const Glib::RefPtr<Gtk::Builder>
             it.second->property_inherit() = part.attributes.at(it.first).first;
         }
         it.second->entry->signal_changed().connect([this, it] {
-            needs_save = true;
             part.attributes[it.first] = it.second->get_as_pair();
+            set_needs_save();
         });
         it.second->button->signal_toggled().connect([this, it] {
-            needs_save = true;
             part.attributes[it.first] = it.second->get_as_pair();
+            set_needs_save();
         });
     }
 
@@ -244,10 +244,13 @@ PartEditor::PartEditor(BaseObjectType *cobject, const Glib::RefPtr<Gtk::Builder>
     w_change_package_button->signal_clicked().connect(sigc::mem_fun(*this, &PartEditor::change_package));
 
     w_tags_inherit->set_active(part.inherit_tags);
-    w_tags_inherit->signal_toggled().connect([this] { needs_save = true; });
+    w_tags_inherit->signal_toggled().connect([this] { set_needs_save(); });
 
     w_tags->set_tags(part.tags);
-    w_tags->signal_changed().connect([this] { needs_save = true; });
+    w_tags->signal_changed().connect([this] {
+        part.tags = w_tags->get_tags();
+        set_needs_save();
+    });
 
     pin_store = Gtk::ListStore::create(pin_list_columns);
     pin_store->set_sort_func(pin_list_columns.pin_name,
@@ -316,7 +319,7 @@ PartEditor::PartEditor(BaseObjectType *cobject, const Glib::RefPtr<Gtk::Builder>
             row[pad_list_columns.gate_uuid] = UUID();
         }
         update_mapped();
-        needs_save = true;
+        set_needs_save();
     });
 
     w_tv_pins->signal_row_activated().connect([this](const Gtk::TreeModel::Path &path, Gtk::TreeViewColumn *col) {
@@ -349,7 +352,7 @@ PartEditor::PartEditor(BaseObjectType *cobject, const Glib::RefPtr<Gtk::Builder>
             }
         }
         update_mapped();
-        needs_save = true;
+        set_needs_save();
     });
 
     w_button_select_pin->signal_clicked().connect([this] {
@@ -399,7 +402,7 @@ PartEditor::PartEditor(BaseObjectType *cobject, const Glib::RefPtr<Gtk::Builder>
     if (part.base) {
         w_model_inherit->set_active(part.inherit_model);
         w_model_inherit->signal_toggled().connect([this] {
-            needs_save = true;
+            set_needs_save();
             update_model_inherit();
         });
         update_model_inherit();
@@ -408,7 +411,7 @@ PartEditor::PartEditor(BaseObjectType *cobject, const Glib::RefPtr<Gtk::Builder>
         w_model_inherit->set_sensitive(false);
     }
 
-    w_model_combo->signal_changed().connect([this] { needs_save = true; });
+    w_model_combo->signal_changed().connect([this] { set_needs_save(); });
 
     w_parametric_table_combo->append("", "None");
     for (const auto &it : pool_parametric.get_tables()) {
@@ -423,22 +426,23 @@ PartEditor::PartEditor(BaseObjectType *cobject, const Glib::RefPtr<Gtk::Builder>
     }
     update_parametric_editor();
     w_parametric_table_combo->signal_changed().connect([this] {
-        needs_save = true;
+        set_needs_save();
         update_parametric_editor();
     });
     w_parametric_from_base->set_sensitive(part.base);
     w_parametric_from_base->signal_clicked().connect([this] {
         if (part.base) {
-            needs_save = true;
+            set_needs_save();
         }
     });
 
     w_orderable_MPNs_add_button->signal_clicked().connect([this] {
-        needs_save = true;
         auto uu = UUID::random();
         part.orderable_MPNs.emplace(uu, "");
         auto ed = create_orderable_MPN_editor(uu);
         ed->focus();
+        set_needs_save();
+        update_orderable_MPNs_label();
     });
 
     for (const auto &it : part.orderable_MPNs) {
@@ -450,8 +454,10 @@ class OrderableMPNEditor *PartEditor::create_orderable_MPN_editor(const UUID &uu
 {
     auto ed = Gtk::manage(new OrderableMPNEditor(part, uu));
     w_orderable_MPNs_box->pack_start(*ed, false, false, 0);
-    ed->signal_changed().connect([this] {
-        needs_save = true;
+    ed->signal_changed().connect([this, ed] {
+        if (part.orderable_MPNs.count(ed->get_uuid()))
+            part.orderable_MPNs.at(ed->get_uuid()) = ed->get_MPN();
+        set_needs_save();
         update_orderable_MPNs_label();
     });
     ed->show();
@@ -481,12 +487,8 @@ void PartEditor::update_map_buttons()
 void PartEditor::update_orderable_MPNs_label()
 {
     std::string s;
-    for (auto ch : w_orderable_MPNs_box->get_children()) {
-        if (auto w = dynamic_cast<OrderableMPNEditor *>(ch)) {
-            auto m = w->get_MPN();
-            if (m.size())
-                s += Glib::Markup::escape_text(m) + ", ";
-        }
+    for (const auto &[uu, mpn] : part.orderable_MPNs) {
+        s += Glib::Markup::escape_text(mpn) + ", ";
     }
     if (s.size()) {
         s.pop_back();
@@ -523,7 +525,7 @@ void PartEditor::map_pin(Gtk::TreeModel::iterator it_pin)
             }
         }
         update_mapped();
-        needs_save = true;
+        set_needs_save();
     }
 }
 
@@ -591,8 +593,8 @@ void PartEditor::change_package()
     auto top = dynamic_cast<Gtk::Window *>(get_ancestor(GTK_TYPE_WINDOW));
     PoolBrowserDialog dia(top, ObjectType::PACKAGE, pool);
     if (dia.run() == Gtk::RESPONSE_OK) {
-        needs_save = true;
-        part.package = pool.get_package(dia.get_browser()->get_selected());
+        set_needs_save();
+        part.package = pool.get_package(dia.get_browser().get_selected());
         auto ch = pad_store->children();
         std::set<UUID> pads_exisiting;
         for (auto it = ch.begin(); it != ch.end();) {
@@ -626,6 +628,7 @@ void PartEditor::change_package()
         update_mapped();
         populate_models();
         w_model_combo->set_active_id((std::string)part.package->default_model);
+        set_needs_save();
     }
 }
 
@@ -637,10 +640,6 @@ void PartEditor::reload()
 
 void PartEditor::save()
 {
-    for (auto &it : attr_editors) {
-        part.attributes[it.first] = it.second->get_as_pair();
-    }
-
     part.inherit_model = w_model_inherit->get_active();
 
     if (w_model_combo->get_active_row_number() != -1)
@@ -648,17 +647,7 @@ void PartEditor::save()
     else
         part.model = UUID();
 
-    part.tags = w_tags->get_tags();
     part.inherit_tags = w_tags_inherit->get_active();
-
-    part.pad_map.clear();
-    for (const auto &it : pad_store->children()) {
-        if (it[pad_list_columns.gate_uuid] != UUID() && part.package->pads.count(it[pad_list_columns.pad_uuid])) {
-            const horizon::Gate *gate = &part.entity->gates.at(it[pad_list_columns.gate_uuid]);
-            const horizon::Pin *pin = &gate->unit->pins.at(it[pad_list_columns.pin_uuid]);
-            part.pad_map.emplace(it[pad_list_columns.pad_uuid], horizon::Part::PadMapItem(gate, pin));
-        }
-    }
 
     if (parametric_editor) {
         part.parametric = parametric_editor->get_values();
@@ -667,15 +656,7 @@ void PartEditor::save()
         part.parametric.clear();
     }
 
-    part.orderable_MPNs.clear();
-
-    for (auto ch : w_orderable_MPNs_box->get_children()) {
-        if (auto w = dynamic_cast<OrderableMPNEditor *>(ch)) {
-            part.orderable_MPNs.emplace(w->get_uuid(), w->get_MPN());
-        }
-    }
-
-    needs_save = false;
+    PoolEditorInterface::save();
 }
 
 
@@ -738,6 +719,15 @@ void PartEditor::update_mapped()
     }
     w_pin_stat->set_text(std::to_string(pin_store->children().size() - pins_mapped.size()) + " pins not mapped");
     w_pad_stat->set_text(std::to_string(n_pads_not_mapped) + " pads not mapped");
+
+    part.pad_map.clear();
+    for (const auto &it : pad_store->children()) {
+        if (it[pad_list_columns.gate_uuid] != UUID() && part.package->pads.count(it[pad_list_columns.pad_uuid])) {
+            const horizon::Gate *gate = &part.entity->gates.at(it[pad_list_columns.gate_uuid]);
+            const horizon::Pin *pin = &gate->unit->pins.at(it[pad_list_columns.pin_uuid]);
+            part.pad_map.emplace(it[pad_list_columns.pad_uuid], Part::PadMapItem(gate, pin));
+        }
+    }
 }
 
 void PartEditor::populate_models()
@@ -764,7 +754,7 @@ void PartEditor::update_parametric_editor()
             ed->update(part.parametric);
         }
         parametric_editor = ed;
-        parametric_editor->signal_changed().connect([this] { needs_save = true; });
+        parametric_editor->signal_changed().connect([this] { set_needs_save(); });
     }
 }
 
@@ -772,10 +762,10 @@ void PartEditor::copy_from_other_part()
 {
     auto top = dynamic_cast<Gtk::Window *>(get_ancestor(GTK_TYPE_WINDOW));
     PoolBrowserDialog dia(top, ObjectType::PART, pool);
-    auto br = dynamic_cast<PoolBrowserPart *>(dia.get_browser());
-    br->set_entity_uuid(part.entity->uuid);
+    auto &br = dynamic_cast<PoolBrowserPart &>(dia.get_browser());
+    br.set_entity_uuid(part.entity->uuid);
     if (dia.run() == Gtk::RESPONSE_OK) {
-        auto uu = dia.get_browser()->get_selected();
+        auto uu = br.get_selected();
         auto other_part = pool.get_part(uu);
         for (auto &it_pad : pad_store->children()) {
             Gtk::TreeModel::Row row_pad = *it_pad;
@@ -796,7 +786,7 @@ void PartEditor::copy_from_other_part()
             }
         }
         update_mapped();
-        needs_save = true;
+        set_needs_save();
     }
 }
 
