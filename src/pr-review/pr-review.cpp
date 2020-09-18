@@ -318,23 +318,16 @@ int main(int c_argc, char *c_argv[])
             "AND git_files_view.type = 'part'");
     pool.db.execute(
             "CREATE TEMP VIEW parts_tree AS "
-            "WITH RECURSIVE where_used(typex, uuidx, level, root) AS ( SELECT 'part', part_uuid, 0, "
+            "WITH RECURSIVE where_used(typex, uuidx, level, path) AS ( SELECT 'part', part_uuid, 0, "
             "part_uuid from top_parts UNION "
-            "SELECT dep_type, dep_uuid, level+1, root FROM dependencies, where_used "
+            "SELECT dep_type, dep_uuid, level+1, path || '/' || dep_uuid FROM dependencies, where_used "
             "WHERE dependencies.type = where_used.typex "
             "AND dependencies.uuid = where_used.uuidx) "
-            "SELECT where_used.typex AS type, all_items_view.name, level, ( "
-            "CASE where_used.typex "
-            "WHEN 'part' THEN 0 "
-            "WHEN 'entity' THEN 1 "
-            "WHEN 'unit' THEN 2 "
-            "WHEN 'package' THEN 4 "
-            "WHEN 'padstack' THEN 6 "
-            "ELSE -1 END) AS type_order, "
+            "SELECT where_used.typex AS type, all_items_view.name, level, "
             "(SELECT COUNT(*) from git_files_view "
             "WHERE git_files_view.uuid = where_used.uuidx AND "
             "git_files_view.type = where_used.typex) AS in_pr, "
-            "where_used.uuidx AS uuid, root "
+            "where_used.uuidx AS uuid, path "
             "FROM where_used "
             "LEFT JOIN all_items_view "
             "ON where_used.typex = all_items_view.type "
@@ -357,11 +350,12 @@ int main(int c_argc, char *c_argv[])
             "CREATE TEMP VIEW all_parts_tree AS "
             "SELECT * FROM ("
             "SELECT * FROM parts_tree "
-            "UNION SELECT 'model_3d', model_filename, level+1, 5, in_pr, '', root FROM parts_tree "
+            "UNION SELECT 'model_3d', model_filename, level+1, in_pr, '', path || '/model' FROM parts_tree "
             "INNER JOIN models ON (models.package_uuid = uuid and type = 'package') "
-            "UNION SELECT 'symbol', symbols.name, level+1, 3, in_pr, symbols.uuid, root FROM parts_tree "
+            "UNION SELECT 'symbol', symbols.name, level+1, in_pr, symbols.uuid, path || '/' || symbols.uuid FROM "
+            "parts_tree "
             "INNER JOIN symbols ON (symbols.unit = parts_tree.uuid AND type = 'unit')) "
-            "ORDER BY root, type_order, level");
+            "ORDER BY path");
 
     {
         ofs << "# Parts overview (excluding derived)\n";
@@ -371,14 +365,13 @@ int main(int c_argc, char *c_argv[])
             const auto type = object_type_lut.lookup(q.get<std::string>(0));
             const auto name = q.get<std::string>(1);
             const auto level = q.get<int>(2);
-            const auto from_pr = q.get<int>(4);
+            const auto from_pr = q.get<int>(3);
             for (int i = 0; i < level; i++) {
                 ofs << "  ";
             }
             ofs << "- " << surround_if("**", "**", object_descriptions.at(type).name + " " + name, from_pr) << "\n";
         }
     }
-
     {
         bool first = true;
         SQLite::Query q(pool.db,
