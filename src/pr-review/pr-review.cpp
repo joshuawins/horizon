@@ -91,10 +91,10 @@ private:
 
 static PinDirectionMap pin_direction_map;
 
-static void print_rules_check_result(std::ostream &ofs, const RulesCheckResult &r)
+static void print_rules_check_result(std::ostream &ofs, const RulesCheckResult &r, const std::string &name = "Checks")
 {
     if (r.level != RulesCheckErrorLevel::PASS) {
-        ofs << "Checks didn't pass\n";
+        ofs << name << " didn't pass\n";
         for (const auto &error : r.errors) {
             ofs << " - ";
             switch (error.level) {
@@ -114,7 +114,7 @@ static void print_rules_check_result(std::ostream &ofs, const RulesCheckResult &
         }
     }
     else {
-        ofs << ":heavy_check_mark: Checks passed\n";
+        ofs << ":heavy_check_mark: " << name << " passed\n";
         for (const auto &error : r.errors) {
             ofs << " - " << error.comment << "\n";
         }
@@ -717,7 +717,15 @@ int main(int c_argc, char *c_argv[])
             }
             {
                 auto r = pkg.rules.check(RuleID::PACKAGE_CHECKS, pkg);
-                print_rules_check_result(ofs, r);
+                print_rules_check_result(ofs, r, "Package checks");
+                ofs << "\n";
+            }
+            {
+                auto &rule_cl = dynamic_cast<RuleClearancePackage &>(*pkg.rules.get_rule_nc(RuleID::CLEARANCE_PACKAGE));
+                rule_cl.clearance_silkscreen_cu = 0.2_mm;
+                rule_cl.clearance_silkscreen_pkg = 0.2_mm;
+                auto r = pkg.rules.check(RuleID::CLEARANCE_PACKAGE, pkg);
+                print_rules_check_result(ofs, r, "Clearance checks");
                 ofs << "\n";
             }
             for (auto &[uu, txt] : pkg.texts) {
